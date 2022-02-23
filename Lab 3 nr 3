@@ -1,0 +1,271 @@
+// C++ code
+//
+
+const int redLed = 9;
+const int greenLed = 8;
+const int LED1 = 12;
+const int LED2 = 5;
+const int SW1 = 13;   // gir pin-ane beskirvande namn
+const int SW2 = 4;
+const int buzzerPin = 11;
+const int randomPin = A0;
+const int blueLed = 7;
+
+int winner = 0;
+int winnerbeep = 750;
+int fault = 0;
+int faultbeep = 200;   // opprettar variablar med namn
+int forTidleg = 0;
+int scoreBlue = 0;
+int scoreYellow = 0;
+int chanceBlue ;
+
+unsigned long wait = 0;
+unsigned long now = 0;
+unsigned long lengde = 5;
+int incomingByte = 0;
+
+
+void setup(){
+  pinMode(redLed, OUTPUT);
+  pinMode(greenLed, OUTPUT);
+  pinMode(blueLed, OUTPUT);
+  pinMode(LED1, OUTPUT);  // gir pin-ane funksjonar
+  pinMode(LED2, OUTPUT);
+  pinMode(SW1, INPUT);
+  pinMode(SW2, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+  randomSeed(analogRead(randomPin)); // opprettar radomseed for random funksjon
+  Serial.begin(9600);  // startr Serial
+  
+}
+void vinn(int pin){ // spelar av vinnarmelodi og lysshow, parameter er vinnar-pin
+  int tid = millis(); 
+  int notid = millis(); // gir variablane verdien til ms passert
+  int ledtid = millis();
+  int x = winnerbeep; // variablen som bestemme frekvensen til melodien
+  while ((notid - tid) < 2000){ // køyre i 2000 ms
+    x = x + 1; // variablen aukar med 1 for kvar gjennomkøyring
+    notid = millis(); // oopdaterar variblen sin verdi i ms
+    for (int i=x-1; i<=x; i++){ // vil køyre ein gong, men ligg i while løkka
+      tone(buzzerPin, i, lengde); // spelar melodien
+      int lednotid = millis(); // oppdaterar variablen sin ms
+      if (lednotid - ledtid < 80){ // led lyser når det er passert mindre enn 80 ms
+        digitalWrite(pin, HIGH);   // vinnaren sin led
+        digitalWrite(greenLed, HIGH);  // RGB-leden lyse grønt
+      }
+      if (lednotid - ledtid > 80){ // led er av etter meir enn 80 ms
+        digitalWrite(pin, LOW);
+        digitalWrite(greenLed, LOW);
+      }
+      if (lednotid -ledtid > 160){ // resettar variablen ledtid, så argumenta i
+        ledtid = lednotid;      // if setningane startar på 0 igjen.
+      }
+    }   
+  }
+  digitalWrite(pin, LOW);  // skrur av begge leddane 
+  digitalWrite(greenLed, LOW);
+}
+
+void avslutt(){ // sjekkar kven som har høgst score, og deklarera den som vinnar
+  if (scoreBlue > scoreYellow){   // med å gi den vinnaren sin pin
+    winner = LED1;             
+  }                       
+  else if (scoreBlue < scoreYellow){
+    winner = LED2;
+  }
+}
+
+void loop(){
+  digitalWrite(redLed, LOW);
+  digitalWrite(greenLed, LOW); // skrur av alle fargar for sikkerheitsskuld
+  digitalWrite(blueLed, LOW);  // printar "startmenyen" når arduinoen får straum
+  Serial.println("Først til 5000 poeng, -1000 for å trykke på raudt lys,");
+  Serial.println(" opp til +1500 for å trykke først på grønt lys og -2000 for å trykke på blått.");
+  Serial.println("'s' for å starte eit nytt spel.");
+  Serial.println("'r' for å resette scoren undervegs i spelet.");
+  Serial.println("'q' for å avslutte spelet før poenggrensa er nådd.");
+  while (incomingByte == 0){ // while løkke som ventar på input
+    if (Serial.available() > 0){ // sjekkar om det kjem input
+      incomingByte = Serial.read(); // viss det kjem, lagrar den inputen
+      Serial.flush(); // og fjernar enter tasten sin input etter.
+    }  
+  }
+  if (incomingByte == 115){ // viss input er s, tilsvarar dette 115, og spelet startar
+    while (scoreBlue < 5000 && scoreYellow < 5000){ // køyre fram til nokon når 5000 poeng
+      digitalWrite(greenLed, LOW);
+      digitalWrite(redLed, LOW);  // skrur av alle fargar for sikkerheitsskuld
+      digitalWrite(blueLed, LOW);
+      if (Serial.available() > 0){
+        incomingByte = Serial.read(); // same som over, sjekkar om det er input
+        Serial.flush();
+      }
+      if (incomingByte == 114){  // viss det er input, og den er r (114), nullstillast
+        scoreYellow = 0;         // scoren, og det printast
+        scoreBlue = 0;
+        Serial.println("Score nullstilt");
+      }
+      if (incomingByte == 113){ // viss inputen er q (113), køyrast avslutt funksjonen
+        avslutt();              // og den bryt whileløkka, ein vinnar blir kåra, 
+        break;                // melodi spelt og spelet avslutta
+      }
+      int randNum = random(3000, 6000); // finn eit tilfeldig tal mellom 3000 og 6000
+      int randBlue = random (0, 10); // finn tilfeldig tal frå 0-9
+      if (randBlue >= 7 && randBlue <=9){ // sjekkar om det er 7, 8 eller 9
+        chanceBlue = 1; // viss det er det, så aktiverast blå led delen av programmet
+      }
+      int wait = millis(); // gir variablane verdiane til passert ms
+      int now = millis();
+      digitalWrite(redLed, HIGH); // skrur på raudt lys i RGB
+      while ((now - wait) < randNum){ // vil vente i talet mellom 3-6000 som ms
+        now = millis(); // oppdaterar verdien til variablen
+        if (Serial.available() > 0){
+          incomingByte = Serial.read(); // sjekkar om det er input som før
+          Serial.flush();
+        }  
+        if (incomingByte == 113){ // viss input er q bryt den while løkka,
+          avslutt();   // og inputen er lagra som vil bryte seinare løkker også
+          fault = 0; // settast til for sikkerheitsskuld
+          digitalWrite(redLed, LOW); //skrur av raudt lys
+          break;
+        }
+        else if (digitalRead(SW1) == HIGH){ // trykkar spelar 1 blir det lagra
+          fault = 1; // i variablen fault
+          digitalWrite(redLed, LOW);
+          break; // bryt while løkka
+        }
+        else if (digitalRead(SW2) == HIGH){ // same, men for spelar 2
+          fault = 2;
+          digitalWrite(redLed, LOW);
+          break;
+        }
+      }
+      if (fault == 1){ // viss spelar 1 trykte for tidleg,
+        if (scoreBlue > 0){ // og den har meir enn 0 poeng 
+          scoreBlue = scoreBlue - 1000; // får den -1000 poeng
+          if (scoreBlue < 0){ // blir poengsummen mindre enn 0
+            scoreBlue = 0;  // settast den opp til 0, skal ikkje ha - score
+          }
+          Serial.println("Blue : " + String(scoreBlue)); // printar scoren
+        }
+      }
+      else if (fault == 2){ // same, men for spelar 2
+        if (scoreYellow > 0){
+          scoreYellow = scoreYellow - 1000;
+          if (scoreYellow < 0){
+            scoreYellow = 0;
+          }
+          Serial.println("Yellow : " + String(scoreYellow));
+        }
+      }
+      else if (chanceBlue == 1){ // viss ingen trykte for tidleg og blå led
+        digitalWrite(redLed, LOW);  // delen blei aktiver lenger oppe
+        digitalWrite(blueLed, HIGH); // skrur av raudt og på blått lys
+        int bluetime1 = millis();
+        int bluetime2 = millis();
+        while (bluetime1 - bluetime2 <= 1500){ // skal lyse i 1500 ms
+          bluetime1 = millis();  // oppdaterar tidsveriden
+          if (Serial.available() > 0){
+            incomingByte = Serial.read();  // sjekkar etter input som før
+            Serial.flush();
+          }  
+          if (incomingByte == 113){ // avsluttar osv... viss q
+            avslutt();
+            break;
+          }
+          int knapp1 = digitalRead(SW1); // les og lagrar om knappane er
+          int knapp2 = digitalRead(SW2); // trykt eller ikkje
+          if (knapp1 == HIGH){ // viss spelar 1 har trykt
+            if (scoreBlue > 0){
+              scoreBlue = scoreBlue - 2000; // blir det -2000 poeng viss
+              if (scoreBlue < 0){ // den har poeng, og blir ikkje -score
+                scoreBlue = 0;
+              }
+              Serial.println("Blue : " + String(scoreBlue)); // printar scoren
+            }
+            while (digitalRead(SW1) == HIGH); // ventar til knappen er sluppet
+          }        // fordi her brytast ikkje while løkka, og begge kan trykke
+                    // meir enn ein gong
+          if (knapp2 == HIGH){
+            if (scoreYellow > 0){
+              scoreYellow = scoreYellow - 2000; // same som over, men for 2
+              if (scoreYellow < 0){
+                scoreYellow = 0;
+              }
+              Serial.println("Yellow : " + String(scoreYellow));
+            }
+            while (digitalRead(SW2) == HIGH);
+          }          
+        }
+      }
+      else { // viss ingen trykte for tidleg og blå ikkje aktivert
+        digitalWrite(redLed, LOW); // grøn på og raud led av
+        digitalWrite(greenLed, HIGH);
+        int pointtime = millis();
+        int knapp1 = digitalRead(SW1); // les knappane og lagrar 
+        int knapp2 = digitalRead(SW2); 
+        while ((knapp1 == LOW) && (knapp2 == LOW)){// køyre til nokon trykke
+          if (Serial.available() > 0){
+            incomingByte = Serial.read();// ser etter input
+            Serial.flush();
+          }  
+          if (incomingByte == 113){ // avsluttar viss q
+            avslutt();
+            break;
+          }
+          knapp1 = digitalRead(SW1); // les knappane igjen
+          knapp2 = digitalRead(SW2); 
+          if (knapp1 == HIGH){ // viss spelar 1 trykke først
+            int treigheit = millis() - pointtime; // lagrar tid i ms frå
+             // grøn led kom på til knappen blei trykt
+            int poeng = 1500 - treigheit; // tente poeng er 1500 - tida i ms
+            if (poeng < 0){ // er spelaren treig kan det bli - poeng
+              poeng = 0; // så denne endrar det til 0 poeng
+            }
+            scoreBlue = scoreBlue + poeng; // legg til dei tente poenga
+            Serial.println("Blue : " + String(scoreBlue));
+          }
+          else if (knapp2 == HIGH){
+            int treigheit = millis() - pointtime; // same som under,
+            int poeng = 1500 - treigheit;       // men for spelar 2
+            if (poeng < 0){
+              poeng = 0;
+            }
+            scoreYellow = scoreYellow + poeng;
+            Serial.println("Yellow : " + String(scoreYellow));
+          }
+        }
+      }
+      while (digitalRead(SW1) == HIGH || digitalRead(SW2) == HIGH); // ventar
+      fault = 0;                             // til begge knappar er sluppet
+      chanceBlue = 0; // resettar variablane til neste gjennomkøyring
+      
+    }
+    // viss ein har nådd 5000 eller inputen har vore q kjem ein hit
+    if (scoreBlue > scoreYellow){ // har spelar 1 mest poeng
+      winner = LED1; // ledden til spelar 1 lagra, og printar dette
+      Serial.println("Vinnaren er Blue med " + String(scoreBlue) + " poeng.");
+      Serial.println("Yellow tapte med " + String(scoreYellow) + " poeng.");
+    }
+    else if (scoreBlue < scoreYellow){// vinnaren er spelar to her
+      winner = LED2;
+      Serial.println("Vinnaren er Yellow med " + String(scoreYellow) + " poeng.");
+      Serial.println("Blue tapte med " + String(scoreBlue) + " poeng");
+    }
+    else{ // viss det er likt (begge har 0), printar uavgjort
+      Serial.println("Det blei uavgjort");
+    }
+    vinn(winner); // køyre vinnar funksjonen med vinnaren sin led
+    winner = 0;
+    scoreBlue = 0; // resettar variablane
+    scoreYellow = 0;
+  }
+  else { // viss input var noko anna enn s i menyen
+    Serial.println("Wrong input, press 's' to play.");
+  }
+  
+  incomingByte = 0;  // resettar input variabelen
+  if (Serial.available() > 0){
+    Serial.flush(); // fjernar eventuelle inputtar som ventar i kø
+  }
+}
